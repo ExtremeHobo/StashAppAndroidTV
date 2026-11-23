@@ -121,6 +121,9 @@ jobs:
           <!-- app-note:Presence PIN unlock build for ExtremeHobo fork -->
           EOF
 
+          # Only upload the short names the in-app updater looks for.
+          # Do not also glob the gradle-versioned APKs — that duplicates
+          # StashAppAndroidTV-release-*.apk basenames and 422s the upload.
           gh release create "${{ env.VERSION_NAME }}" \
             --latest \
             --title "${{ env.VERSION_NAME }}" \
@@ -131,5 +134,4 @@ jobs:
             app/build/outputs/apk/release/StashAppAndroidTV-arm64-v8a.apk \
             app/build/outputs/apk/release/StashAppAndroidTV-release-arm64-v8a.apk \
             app/build/outputs/apk/release/StashAppAndroidTV-armeabi-v7a.apk \
-            app/build/outputs/apk/release/StashAppAndroidTV-release-armeabi-v7a.apk \
-            "app/build/outputs/apk/**/StashAppAndroidTV-release-*.apk"
+            app/build/outputs/apk/release/StashAppAndroidTV-release-armeabi-v7a.apk
