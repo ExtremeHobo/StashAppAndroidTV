@@ -1,10 +1,15 @@
 name: Presence unlock build
 
+# Publishes a normal (non-prerelease) GitHub Release that the in-app updater
+# can see via /releases/latest. Release "name" must be a parseable version
+# (e.g. v0.9.1-3-gabcdef) and assets must include StashAppAndroidTV.apk /
+# StashAppAndroidTV-release.apk (plus ABI-specific copies).
+
 on:
   push:
     branches:
-      - cursor/presence-pin-unlock-def2
       - main
+      - cursor/presence-pin-unlock-def2
   workflow_dispatch:
 
 defaults:
@@ -44,14 +49,13 @@ jobs:
             echo "$PERSONAL_KEYSTORE_BASE64" | base64 -d > app/personal.keystore
             echo "Using PERSONAL_KEYSTORE from secrets"
           else
-            # Ephemeral keystore if secrets are not configured yet (first CI run).
             keytool -genkeypair -v \
               -keystore app/personal.keystore \
               -alias stash-tv \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass stash-tv-local -keypass stash-tv-local \
               -dname "CN=ExtremeHobo StashAppAndroidTV, O=ExtremeHobo, C=US"
-            echo "Generated ephemeral personal.keystore (set PERSONAL_KEYSTORE_* secrets for stable updates)"
+            echo "Generated ephemeral personal.keystore"
           fi
           echo "PERSONAL_KEYSTORE_PASSWORD=${PERSONAL_KEYSTORE_PASSWORD:-stash-tv-local}" >> "$GITHUB_ENV"
           echo "PERSONAL_KEY_ALIAS=${PERSONAL_KEY_ALIAS:-stash-tv}" >> "$GITHUB_ENV"
@@ -60,53 +64,72 @@ jobs:
       - name: Version names
         run: |
           VERSION_NAME=$(git describe --tags --match 'v*' --long)
+          # GitHub release tags cannot contain some chars; keep describe form.
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "TAG_NAME=presence-unlock" >> "$GITHUB_ENV"
+          echo "Release version: $VERSION_NAME"
 
       - name: Build release APK
         run: |
           ./gradlew clean assembleRelease --no-daemon
 
-      - name: List APKs
+      - name: Copy short asset names for in-app updater
         run: |
-          find app/build/outputs/apk -name '*.apk' -print
-          find app/build/outputs/apk -name '*.apk' -print0 | xargs -0 sha256sum
+          set -euo pipefail
+          out=app/build/outputs/apk/release
+          mkdir -p "$out"
+          # Universal
+          uni=$(find app/build/outputs/apk -name 'StashAppAndroidTV-release-*-*.apk' ! -name '*-arm64-v8a.apk' ! -name '*-armeabi-v7a.apk' | head -n1)
+          arm64=$(find app/build/outputs/apk -name 'StashAppAndroidTV-release-*-arm64-v8a.apk' | head -n1)
+          v7a=$(find app/build/outputs/apk -name 'StashAppAndroidTV-release-*-armeabi-v7a.apk' | head -n1)
+          echo "uni=$uni"
+          echo "arm64=$arm64"
+          echo "v7a=$v7a"
+          cp -f "$uni" "$out/StashAppAndroidTV.apk"
+          cp -f "$uni" "$out/StashAppAndroidTV-release.apk"
+          cp -f "$arm64" "$out/StashAppAndroidTV-arm64-v8a.apk"
+          cp -f "$arm64" "$out/StashAppAndroidTV-release-arm64-v8a.apk"
+          cp -f "$v7a" "$out/StashAppAndroidTV-armeabi-v7a.apk"
+          cp -f "$v7a" "$out/StashAppAndroidTV-release-armeabi-v7a.apk"
+          ls -la "$out"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: StashAppAndroidTV-presence-unlock
-          path: app/build/outputs/apk/**/*.apk
+          path: |
+            app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
-      - name: Publish/replace presence-unlock pre-release
+      - name: Publish latest GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete "${{ env.TAG_NAME }}" --cleanup-tag -y || true
+          set -euo pipefail
+          # Recreate this version tag/release if rebuilding the same commit.
+          gh release delete "${{ env.VERSION_NAME }}" --cleanup-tag -y || true
 
           cat > ci_release_note.txt <<EOF
-          ### Presence PIN unlock build (\`${{ env.VERSION_NAME }}\`)
+          ### Presence PIN unlock (\`${{ env.VERSION_NAME }}\`)
 
-          Skips the app PIN when Home Assistant reports:
-          - \`person.sam_davis\` = home
-          - \`person.meghan\` ≠ home
-          - \`input_boolean.guest_mode\` = off
+          Fork of StashAppAndroidTV with Home Assistant presence PIN unlock
+          (Sam home + Meghan away + Guest Mode off).
 
-          **Install (Shield / Android TV):**
-          1. Uninstall the stock StashAppAndroidTV once (different signing key).
-          2. Sideload the \`arm64-v8a\` or universal release APK from this release.
-          3. Re-enter Stash server URL / API key / PIN.
-          4. Preferences → enable **Presence PIN unlock**, set HA URL + long-lived token.
-          5. Optional: Settings → Advanced → Update URL =
-             \`https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/tags/presence-unlock\`
+          In-app updates: Settings → Advanced → Update URL should be
+          \`https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/latest\`
+          (this is the app default in this fork).
 
-          No secrets are stored in git; the HA token stays on the TV.
+          <!-- app-note:Presence PIN unlock build for ExtremeHobo fork -->
           EOF
 
-          gh release create "${{ env.TAG_NAME }}" \
-            --latest=false --prerelease \
-            --title "presence-unlock ${{ env.VERSION_NAME }}" \
+          gh release create "${{ env.VERSION_NAME }}" \
+            --latest \
+            --title "${{ env.VERSION_NAME }}" \
             --target "${{ github.sha }}" \
             -F ci_release_note.txt \
-            "app/build/outputs/apk/**/*.apk"
+            app/build/outputs/apk/release/StashAppAndroidTV.apk \
+            app/build/outputs/apk/release/StashAppAndroidTV-release.apk \
+            app/build/outputs/apk/release/StashAppAndroidTV-arm64-v8a.apk \
+            app/build/outputs/apk/release/StashAppAndroidTV-release-arm64-v8a.apk \
+            app/build/outputs/apk/release/StashAppAndroidTV-armeabi-v7a.apk \
+            app/build/outputs/apk/release/StashAppAndroidTV-release-armeabi-v7a.apk \
+            "app/build/outputs/apk/**/StashAppAndroidTV-release-*.apk"

@@ -25,36 +25,39 @@ Entity IDs are configurable in app Preferences.
 3. **Home Assistant token** — create a long-lived access token in HA (Profile → Security). Stored only on the TV; never committed to git.
 4. Confirm the three entity IDs (defaults match the table above)
 
-## Install / update on the Android box (NVIDIA Shield)
+## Install / update on the Android box
 
-Stock builds from `damontecres/StashAppAndroidTV` use a different signing key than this fork, so **one uninstall** is required the first time:
+**Device in use:** Sam's Office Onn Box (`192.168.1.171`, ABI `armeabi-v7a`).
 
-1. Download the latest `presence-unlock` pre-release APK from  
-   https://github.com/ExtremeHobo/StashAppAndroidTV/releases/tag/presence-unlock  
-   Prefer `arm64-v8a` (or the universal APK).
-2. Sideload (ADB example):
+Stock builds from `damontecres/StashAppAndroidTV` use a different signing key than this fork, so **one uninstall** was required the first time.
 
-   ```bash
-   adb connect <shield-ip>
-   adb uninstall com.github.damontecres.stashapp
-   adb install -r StashAppAndroidTV-*-arm64-v8a.apk
-   ```
+### In-app updates (like stock)
 
-   Or use Downloader / file manager on the Shield.
-3. Open the app, re-enter Stash server URL + API key + PIN.
-4. Enable Presence PIN unlock and paste the HA token.
-5. (Optional) Point **Update URL** at  
-   `https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/tags/presence-unlock`  
-   so in-app updates track this fork.
+This fork’s default Update URL is:
 
-### Stable signing for future updates
+`https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/latest`
 
-Set GitHub Actions secrets on `ExtremeHobo/StashAppAndroidTV`:
+CI publishes a normal (non-prerelease) release whenever `main` builds, with:
 
-- `PERSONAL_KEYSTORE_BASE64` — `base64 -w0 personal.keystore`
-- `PERSONAL_KEYSTORE_PASSWORD` / `PERSONAL_KEY_PASSWORD` / `PERSONAL_KEY_ALIAS`
+- Release **name** = git describe version (e.g. `v0.9.1-3-gabcdef`) so the app can compare versions
+- Assets named `StashAppAndroidTV.apk` / `StashAppAndroidTV-release.apk` plus ABI copies (`-armeabi-v7a`, `-arm64-v8a`) so the Onn box gets a matching APK
 
-Without those secrets, CI generates an ephemeral keystore each run (you would need to uninstall again between builds).
+Daily (and on demand) **Sync upstream** merges `damontecres/StashAppAndroidTV` into this fork’s `main`, which triggers a new build/release. When that’s newer than what’s installed, the app prompts to install like before.
+
+### Manual sideload
+
+1. Download from https://github.com/ExtremeHobo/StashAppAndroidTV/releases/latest  
+   Prefer `StashAppAndroidTV-armeabi-v7a.apk` (Onn) or the universal `StashAppAndroidTV.apk`.
+2. `adb connect 192.168.1.171:5555` then `adb install -r <apk>`
+3. Preferences → Presence PIN unlock → HA URL `http://192.168.1.23:8123` + long-lived token
+
+### Stable signing
+
+GitHub Actions secrets (already set for this fork):
+
+- `PERSONAL_KEYSTORE_BASE64` / `PERSONAL_KEYSTORE_PASSWORD` / `PERSONAL_KEY_PASSWORD` / `PERSONAL_KEY_ALIAS`
+
+Same keystore ⇒ in-app updates install over the existing app without uninstalling.
 
 ## Optional HA template (single sensor)
 

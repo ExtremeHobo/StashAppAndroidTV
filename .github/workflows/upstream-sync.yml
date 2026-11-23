@@ -1,0 +1,93 @@
+name: Sync upstream StashAppAndroidTV
+
+# Pulls new commits from damontecres/StashAppAndroidTV into this fork's main.
+# A successful merge push triggers "Presence unlock build", which publishes a
+# new /releases/latest APK so the Onn box gets the usual in-app update prompt.
+
+on:
+  schedule:
+    # Daily ~8am America/New_York (13:00 UTC)
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/damontecres/StashAppAndroidTV.git || true
+          git fetch upstream --tags
+          git fetch origin
+
+      - name: Merge upstream/main
+        id: merge
+        run: |
+          set -euo pipefail
+          BEFORE=$(git rev-parse HEAD)
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Already up to date with upstream/main"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git merge --no-edit upstream/main; then
+            AFTER=$(git rev-parse HEAD)
+            if [[ "$BEFORE" == "$AFTER" ]]; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Merge conflicts — opening PR instead of pushing broken main"
+            git merge --abort || true
+            BRANCH="chore/upstream-sync-$(date -u +%Y%m%d)"
+            git checkout -B "$BRANCH" origin/main
+            git merge --no-edit upstream/main || true
+            git add -A
+            # Prefer keeping our presence-unlock bits on conflict if still unmerged
+            for f in \
+              app/src/main/java/com/github/damontecres/stashapp/util/PresencePinUnlock.kt \
+              app/src/main/java/com/github/damontecres/stashapp/PinFragment.kt \
+              app/src/main/java/com/github/damontecres/stashapp/PinFragmentCompose.kt \
+              PRESENCE_PIN_UNLOCK.md \
+              .github/workflows/presence-release.yml \
+              .github/workflows/upstream-sync.yml
+            do
+              if [[ -f "$f" ]]; then git checkout --ours -- "$f" 2>/dev/null || true; git add "$f" || true; fi
+            done
+            git commit -m "chore: merge upstream/main (manual conflict review may be needed)" || true
+            git push -u origin "$BRANCH"
+            gh pr create --base main --head "$BRANCH" \
+              --title "Sync upstream StashAppAndroidTV" \
+              --body "Automated merge from damontecres/StashAppAndroidTV hit conflicts. Please review, keep presence PIN unlock, then merge to publish a new in-app update." || true
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push main
+        if: steps.merge.outputs.changed == 'true'
+        run: |
+          git push origin main
+          echo "Pushed upstream merge to main — Presence unlock build should publish a new latest release."

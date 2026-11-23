@@ -107,14 +107,32 @@ class UpdateChecker {
             updateUrl: String,
         ): Release? {
             return withContext(Dispatchers.IO) {
+                val preferRelease =
+                    PreferenceManager
+                        .getDefaultSharedPreferences(context)
+                        .getBoolean("updatePreferRelease", true)
                 val preferredAsset =
-                    if (PreferenceManager
-                            .getDefaultSharedPreferences(context)
-                            .getBoolean("updatePreferRelease", true)
-                    ) {
+                    if (preferRelease) {
                         RELEASE_ASSET_NAME
                     } else {
                         DEBUG_ASSET_NAME
+                    }
+                // Prefer an APK matching this device ABI (e.g. Onn box is armeabi-v7a only),
+                // then fall back to universal StashAppAndroidTV[-release].apk like upstream.
+                val preferredAssetNames =
+                    buildList {
+                        val prefix =
+                            if (preferRelease) {
+                                "StashAppAndroidTV-release"
+                            } else {
+                                "StashAppAndroidTV-debug"
+                            }
+                        for (abi in Build.SUPPORTED_ABIS) {
+                            add("$prefix-$abi.apk")
+                            add("StashAppAndroidTV-$abi.apk")
+                        }
+                        add(preferredAsset)
+                        add(ASSET_NAME)
                     }
 
                 val client = StashClient.okHttpClient
@@ -131,17 +149,17 @@ class UpdateChecker {
                         val version = Version.tryFromString(name)
                         val publishedAt = result.jsonObject["published_at"]?.jsonPrimitive?.contentOrNull
                         val body = result.jsonObject["body"]?.jsonPrimitive?.contentOrNull
+                        val assets = result.jsonObject["assets"]?.jsonArray
                         val downloadUrl =
-                            result.jsonObject["assets"]
-                                ?.jsonArray
-                                ?.firstOrNull { asset ->
-                                    val assetName =
-                                        asset.jsonObject["name"]?.jsonPrimitive?.contentOrNull
-                                    assetName == ASSET_NAME || assetName == preferredAsset
-                                }?.jsonObject
-                                ?.get("browser_download_url")
-                                ?.jsonPrimitive
-                                ?.contentOrNull
+                            preferredAssetNames.firstNotNullOfOrNull { wanted ->
+                                assets
+                                    ?.firstOrNull { asset ->
+                                        asset.jsonObject["name"]?.jsonPrimitive?.contentOrNull == wanted
+                                    }?.jsonObject
+                                    ?.get("browser_download_url")
+                                    ?.jsonPrimitive
+                                    ?.contentOrNull
+                            }
                         if (version != null) {
                             val notes =
                                 if (body.isNotNullOrBlank()) {
