@@ -40,7 +40,7 @@
     <string name="advanced_settings">Advanced Settings</string>
     <string name="home">Home</string>
 
-    <string name="app_update_url" translatable="false">https://api.github.com/repos/damontecres/StashAppAndroidTV/releases/latest</string>
+    <string name="app_update_url" translatable="false">https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/latest</string>
 
     <string name="setup_1_title">Server URL</string>
     <string name="setup_1_description">Configure the server URL</string>
@@ -144,6 +144,19 @@
     <string name="playback_finished_behavior">Playback finished behavior</string>
     <string name="auto_submit_pin">Auto submit PIN</string>
     <string name="auto_submit_pin_summary">Submit PIN automatically when typed</string>
+    <string name="presence_unlock">Presence PIN unlock</string>
+    <string name="presence_unlock_summary">Skip PIN when Sam is home, Meghan is away, and Guest Mode is off (via Home Assistant)</string>
+    <string name="presence_unlock_summary_on">PIN skipped when Sam home + Meghan away + Guest Mode off</string>
+    <string name="presence_unlock_summary_off">Always require PIN when set</string>
+    <string name="ha_url">Home Assistant URL</string>
+    <string name="ha_url_summary">e.g. http://192.168.1.23:8123 or http://homeassistant.local:8123</string>
+    <string name="ha_token">Home Assistant token</string>
+    <string name="ha_token_summary">Long-lived access token (stored on this device only)</string>
+    <string name="ha_token_set">Token is set</string>
+    <string name="ha_token_not_set">No token set</string>
+    <string name="ha_sam_entity">Sam presence entity</string>
+    <string name="ha_meghan_entity">Meghan presence entity</string>
+    <string name="ha_guest_entity">Guest mode entity</string>
     <string name="current_server">Current server</string>
     <string name="pin_code">Protect with PIN code</string>
     <string name="card_size_title">Card size</string>

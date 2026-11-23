@@ -10,10 +10,15 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
+import com.github.damontecres.stashapp.util.PresencePinUnlock
+import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
+import kotlinx.coroutines.launch
 
 class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
     private lateinit var pinEditText: EditText
+    private var unlocked = false
 
     var onCorrectPin: () -> Unit = {}
 
@@ -25,6 +30,7 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
                 .getDefaultSharedPreferences(requireContext())
                 .getString("pinCode", "")
         if (pinCode.isNullOrBlank()) {
+            unlocked = true
             onCorrectPin.invoke()
         }
     }
@@ -39,15 +45,18 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
         pinEditText = view.findViewById(R.id.pin_edit_text)
         pinEditText.setText("")
 
-        val pinCode =
-            PreferenceManager
-                .getDefaultSharedPreferences(requireContext())
-                .getString(getString(R.string.pref_key_pin_code), "")
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val pinCode = prefs.getString(getString(R.string.pref_key_pin_code), "")
+
+        if (unlocked || pinCode.isNullOrBlank()) {
+            return
+        }
 
         val submit = view.findViewById<Button>(R.id.pin_submit)
         submit.setOnClickListener {
             val enteredPin = pinEditText.text.toString()
             if (enteredPin == pinCode) {
+                unlocked = true
                 onCorrectPin.invoke()
             } else {
                 Toast.makeText(requireContext(), "Wrong PIN", Toast.LENGTH_SHORT).show()
@@ -55,15 +64,30 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
         }
 
         val autoSubmitPin =
-            PreferenceManager
-                .getDefaultSharedPreferences(requireContext())
-                .getBoolean(getString(R.string.pref_key_pin_code_auto), false)
+            prefs.getBoolean(getString(R.string.pref_key_pin_code_auto), false)
         if (autoSubmitPin) {
             submit.visibility = View.INVISIBLE
             pinEditText.doAfterTextChanged {
                 val enteredPin = it.toString()
                 if (enteredPin == pinCode) {
+                    unlocked = true
                     onCorrectPin.invoke()
+                }
+            }
+        }
+
+        val presenceConfig = PresencePinUnlock.configFrom(prefs, requireContext())
+        if (presenceConfig.isConfigured) {
+            view.visibility = View.INVISIBLE
+            viewLifecycleOwner.lifecycleScope.launch(StashCoroutineExceptionHandler()) {
+                val skip = PresencePinUnlock.shouldSkipPin(requireContext())
+                if (!isAdded || unlocked) return@launch
+                if (skip) {
+                    unlocked = true
+                    onCorrectPin.invoke()
+                } else {
+                    view.visibility = View.VISIBLE
+                    pinEditText.requestFocus()
                 }
             }
         }

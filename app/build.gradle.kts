@@ -80,6 +80,23 @@ configure<ApplicationExtension> {
         vectorDrawables.useSupportLibrary = true
     }
     signingConfigs {
+        // Personal-fork keystore so CI can produce an installable release APK
+        // without upstream signing secrets. Kept out of git (see .gitignore).
+        // Generate once: keytool -genkeypair -v -keystore personal.keystore \
+        //   -alias stash-tv -keyalg RSA -keysize 2048 -validity 10000
+        create("personal") {
+            val ks = file("personal.keystore")
+            if (ks.exists()) {
+                storeFile = ks
+                storePassword = System.getenv("PERSONAL_KEYSTORE_PASSWORD") ?: "stash-tv-local"
+                keyAlias = System.getenv("PERSONAL_KEY_ALIAS") ?: "stash-tv"
+                keyPassword = System.getenv("PERSONAL_KEY_PASSWORD") ?: "stash-tv-local"
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
         if (shouldSign.get()) {
             create("ci") {
                 file("ci.keystore").writeBytes(
@@ -108,6 +125,12 @@ configure<ApplicationExtension> {
 
             if (shouldSign.get()) {
                 signingConfig = signingConfigs.getByName("ci")
+            } else if (file("personal.keystore").exists()) {
+                // Same applicationId as stock app, but different signature →
+                // uninstall stock once, then install this fork for updates.
+                signingConfig = signingConfigs.getByName("personal")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
         debug {

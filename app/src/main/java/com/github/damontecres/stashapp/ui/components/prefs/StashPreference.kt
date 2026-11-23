@@ -33,6 +33,7 @@ import com.github.damontecres.stashapp.util.updatePlaybackPreferences
 import com.github.damontecres.stashapp.util.updateScreensaverPreferences
 import com.github.damontecres.stashapp.util.updateSearchPreferences
 import com.github.damontecres.stashapp.util.updateTabPreferences
+import com.github.damontecres.stashapp.util.PresencePinUnlock
 import com.github.damontecres.stashapp.util.updateUpdatePreferences
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -123,6 +124,92 @@ sealed interface StashPreference<T> {
                 getter = { it.pinPreferences.pin },
                 setter = { prefs, value ->
                     prefs.updatePinPreferences { pin = value }
+                },
+            )
+        val PresenceUnlock =
+            StashSwitchPreference(
+                title = R.string.presence_unlock,
+                prefKey = R.string.pref_key_presence_unlock_enabled,
+                summary = R.string.presence_unlock_summary,
+                summaryOn = R.string.presence_unlock_summary_on,
+                summaryOff = R.string.presence_unlock_summary_off,
+                defaultValue = false,
+                getter = { it.pinPreferences.presenceUnlockEnabled },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { presenceUnlockEnabled = value }
+                },
+            )
+        val HaUrl =
+            StashStringPreference(
+                title = R.string.ha_url,
+                prefKey = R.string.pref_key_ha_url,
+                defaultValue = PresencePinUnlock.DEFAULT_HA_URL,
+                summary = R.string.ha_url_summary,
+                getter = {
+                    it.pinPreferences.haUrl.ifBlank { PresencePinUnlock.DEFAULT_HA_URL }
+                },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { haUrl = value.trim() }
+                },
+            )
+        val HaToken =
+            object : StashStringPreference(
+                title = R.string.ha_token,
+                prefKey = R.string.pref_key_ha_token,
+                defaultValue = "",
+                summary = R.string.ha_token_summary,
+                getter = { it.pinPreferences.haToken },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { haToken = value.trim() }
+                },
+            ) {
+                override fun summary(
+                    context: Context,
+                    value: String?,
+                ): String =
+                    if (value.isNotNullOrBlank()) {
+                        context.getString(R.string.ha_token_set)
+                    } else {
+                        context.getString(R.string.ha_token_not_set)
+                    }
+            }
+        val HaSamEntity =
+            StashStringPreference(
+                title = R.string.ha_sam_entity,
+                prefKey = R.string.pref_key_ha_sam_entity,
+                defaultValue = PresencePinUnlock.DEFAULT_SAM_ENTITY,
+                summary = null,
+                getter = {
+                    it.pinPreferences.haSamEntity.ifBlank { PresencePinUnlock.DEFAULT_SAM_ENTITY }
+                },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { haSamEntity = value.trim() }
+                },
+            )
+        val HaMeghanEntity =
+            StashStringPreference(
+                title = R.string.ha_meghan_entity,
+                prefKey = R.string.pref_key_ha_meghan_entity,
+                defaultValue = PresencePinUnlock.DEFAULT_MEGHAN_ENTITY,
+                summary = null,
+                getter = {
+                    it.pinPreferences.haMeghanEntity.ifBlank { PresencePinUnlock.DEFAULT_MEGHAN_ENTITY }
+                },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { haMeghanEntity = value.trim() }
+                },
+            )
+        val HaGuestEntity =
+            StashStringPreference(
+                title = R.string.ha_guest_entity,
+                prefKey = R.string.pref_key_ha_guest_entity,
+                defaultValue = PresencePinUnlock.DEFAULT_GUEST_ENTITY,
+                summary = null,
+                getter = {
+                    it.pinPreferences.haGuestEntity.ifBlank { PresencePinUnlock.DEFAULT_GUEST_ENTITY }
+                },
+                setter = { prefs, value ->
+                    prefs.updatePinPreferences { haGuestEntity = value.trim() }
                 },
             )
         val CardSize =

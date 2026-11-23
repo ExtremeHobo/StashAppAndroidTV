@@ -33,6 +33,35 @@
             app:summary="Submit PIN automatically when typed"
             app:defaultValue="true" />
         <SwitchPreference
+            app:key="@string/pref_key_presence_unlock_enabled"
+            app:title="@string/presence_unlock"
+            app:summary="@string/presence_unlock_summary"
+            app:defaultValue="false" />
+        <EditTextPreference
+            app:key="@string/pref_key_ha_url"
+            app:title="@string/ha_url"
+            app:summary="@string/ha_url_summary"
+            app:defaultValue="http://homeassistant.local:8123" />
+        <EditTextPreference
+            app:key="@string/pref_key_ha_token"
+            app:title="@string/ha_token"
+            app:summary="@string/ha_token_summary" />
+        <EditTextPreference
+            app:key="@string/pref_key_ha_sam_entity"
+            app:title="@string/ha_sam_entity"
+            app:defaultValue="person.sam_davis"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="@string/pref_key_ha_meghan_entity"
+            app:title="@string/ha_meghan_entity"
+            app:defaultValue="person.meghan"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="@string/pref_key_ha_guest_entity"
+            app:title="@string/ha_guest_entity"
+            app:defaultValue="input_boolean.guest_mode"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
             app:key="@string/pref_key_read_only_mode"
             app:title="Read Only Mode"
             app:defaultValue="false"

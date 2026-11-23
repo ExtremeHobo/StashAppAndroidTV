@@ -7,6 +7,14 @@ message PinPreferences {
   string pin = 1;
   string read_only_pin = 2;
   bool auto_submit = 3;
+  // When enabled, skip the app PIN if Home Assistant reports Sam home,
+  // Meghan away, and guest mode off. Token stays on-device only.
+  bool presence_unlock_enabled = 4;
+  string ha_url = 5;
+  string ha_token = 6;
+  string ha_sam_entity = 7;
+  string ha_meghan_entity = 8;
+  string ha_guest_entity = 9;
 }
 
 enum ThemeStyle {

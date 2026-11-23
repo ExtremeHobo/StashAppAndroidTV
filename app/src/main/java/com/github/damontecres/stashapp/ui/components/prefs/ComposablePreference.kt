@@ -282,10 +282,12 @@ fun <T> ComposablePreference(
                                 KeyboardOptions(
                                     autoCorrectEnabled = false,
                                     keyboardType =
-                                        if (preference == StashPreference.UpdateUrl) {
-                                            KeyboardType.Uri
-                                        } else {
-                                            KeyboardType.Unspecified
+                                        when (preference) {
+                                            StashPreference.UpdateUrl,
+                                            StashPreference.HaUrl,
+                                            -> KeyboardType.Uri
+                                            StashPreference.HaToken -> KeyboardType.Password
+                                            else -> KeyboardType.Unspecified
                                         },
                                     imeAction = ImeAction.Done,
                                 ),

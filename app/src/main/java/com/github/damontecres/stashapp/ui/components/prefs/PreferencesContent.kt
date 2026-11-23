@@ -74,6 +74,12 @@ val basicPreferences =
             R.string.basic_interface,
             listOf(
                 StashPreference.PinCode,
+                StashPreference.PresenceUnlock,
+                StashPreference.HaUrl,
+                StashPreference.HaToken,
+                StashPreference.HaSamEntity,
+                StashPreference.HaMeghanEntity,
+                StashPreference.HaGuestEntity,
                 StashPreference.ReadOnlyMode,
                 StashPreference.CardSize,
                 StashPreference.PlayVideoPreviews,

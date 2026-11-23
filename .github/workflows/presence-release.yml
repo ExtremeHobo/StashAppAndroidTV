@@ -1,0 +1,112 @@
+name: Presence unlock build
+
+on:
+  push:
+    branches:
+      - cursor/presence-pin-unlock-def2
+      - main
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4g -XX:MaxMetaspaceSize=512m'"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Prepare personal signing keystore
+        env:
+          PERSONAL_KEYSTORE_BASE64: ${{ secrets.PERSONAL_KEYSTORE_BASE64 }}
+          PERSONAL_KEYSTORE_PASSWORD: ${{ secrets.PERSONAL_KEYSTORE_PASSWORD }}
+          PERSONAL_KEY_ALIAS: ${{ secrets.PERSONAL_KEY_ALIAS }}
+          PERSONAL_KEY_PASSWORD: ${{ secrets.PERSONAL_KEY_PASSWORD }}
+        run: |
+          if [[ -n "${PERSONAL_KEYSTORE_BASE64:-}" ]]; then
+            echo "$PERSONAL_KEYSTORE_BASE64" | base64 -d > app/personal.keystore
+            echo "Using PERSONAL_KEYSTORE from secrets"
+          else
+            # Ephemeral keystore if secrets are not configured yet (first CI run).
+            keytool -genkeypair -v \
+              -keystore app/personal.keystore \
+              -alias stash-tv \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass stash-tv-local -keypass stash-tv-local \
+              -dname "CN=ExtremeHobo StashAppAndroidTV, O=ExtremeHobo, C=US"
+            echo "Generated ephemeral personal.keystore (set PERSONAL_KEYSTORE_* secrets for stable updates)"
+          fi
+          echo "PERSONAL_KEYSTORE_PASSWORD=${PERSONAL_KEYSTORE_PASSWORD:-stash-tv-local}" >> "$GITHUB_ENV"
+          echo "PERSONAL_KEY_ALIAS=${PERSONAL_KEY_ALIAS:-stash-tv}" >> "$GITHUB_ENV"
+          echo "PERSONAL_KEY_PASSWORD=${PERSONAL_KEY_PASSWORD:-stash-tv-local}" >> "$GITHUB_ENV"
+
+      - name: Version names
+        run: |
+          VERSION_NAME=$(git describe --tags --match 'v*' --long)
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "TAG_NAME=presence-unlock" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        run: |
+          ./gradlew clean assembleRelease --no-daemon
+
+      - name: List APKs
+        run: |
+          find app/build/outputs/apk -name '*.apk' -print
+          find app/build/outputs/apk -name '*.apk' -print0 | xargs -0 sha256sum
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StashAppAndroidTV-presence-unlock
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+
+      - name: Publish/replace presence-unlock pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ env.TAG_NAME }}" --cleanup-tag -y || true
+
+          cat > ci_release_note.txt <<EOF
+          ### Presence PIN unlock build (\`${{ env.VERSION_NAME }}\`)
+
+          Skips the app PIN when Home Assistant reports:
+          - \`person.sam_davis\` = home
+          - \`person.meghan\` ≠ home
+          - \`input_boolean.guest_mode\` = off
+
+          **Install (Shield / Android TV):**
+          1. Uninstall the stock StashAppAndroidTV once (different signing key).
+          2. Sideload the \`arm64-v8a\` or universal release APK from this release.
+          3. Re-enter Stash server URL / API key / PIN.
+          4. Preferences → enable **Presence PIN unlock**, set HA URL + long-lived token.
+          5. Optional: Settings → Advanced → Update URL =
+             \`https://api.github.com/repos/ExtremeHobo/StashAppAndroidTV/releases/tags/presence-unlock\`
+
+          No secrets are stored in git; the HA token stays on the TV.
+          EOF
+
+          gh release create "${{ env.TAG_NAME }}" \
+            --latest=false --prerelease \
+            --title "presence-unlock ${{ env.VERSION_NAME }}" \
+            --target "${{ github.sha }}" \
+            -F ci_release_note.txt \
+            "app/build/outputs/apk/**/*.apk"
