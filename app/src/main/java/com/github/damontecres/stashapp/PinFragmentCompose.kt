@@ -11,7 +11,7 @@ import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.preference.PreferenceManager
+import com.github.damontecres.stashapp.util.AppPin
 import com.github.damontecres.stashapp.util.PresencePinUnlock
 import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
 import kotlinx.coroutines.launch
@@ -25,11 +25,8 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.i("RootPin", "onCreate")
         super.onCreate(savedInstanceState)
-        val pinCode =
-            PreferenceManager
-                .getDefaultSharedPreferences(requireContext())
-                .getString("pinCode", "")
-        if (pinCode.isNullOrBlank()) {
+        val pinCode = AppPin.resolvePinCode(requireContext())
+        if (pinCode.isBlank()) {
             unlocked = true
             onCorrectPin.invoke()
         }
@@ -45,10 +42,10 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
         pinEditText = view.findViewById(R.id.pin_edit_text)
         pinEditText.setText("")
 
-        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        val pinCode = prefs.getString(getString(R.string.pref_key_pin_code), "")
+        val pinPrefs = AppPin.pinPreferences(requireContext())
+        val pinCode = AppPin.resolvePinCode(requireContext())
 
-        if (unlocked || pinCode.isNullOrBlank()) {
+        if (unlocked || pinCode.isBlank()) {
             return
         }
 
@@ -63,8 +60,7 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
             }
         }
 
-        val autoSubmitPin =
-            prefs.getBoolean(getString(R.string.pref_key_pin_code_auto), false)
+        val autoSubmitPin = pinPrefs.autoSubmit
         if (autoSubmitPin) {
             submit.visibility = View.INVISIBLE
             pinEditText.doAfterTextChanged {
@@ -76,7 +72,7 @@ class PinFragmentCompose : Fragment(R.layout.pin_dialog) {
             }
         }
 
-        val presenceConfig = PresencePinUnlock.configFrom(prefs, requireContext())
+        val presenceConfig = AppPin.presenceConfig(requireContext())
         if (presenceConfig.isConfigured) {
             view.visibility = View.INVISIBLE
             viewLifecycleOwner.lifecycleScope.launch(StashCoroutineExceptionHandler()) {

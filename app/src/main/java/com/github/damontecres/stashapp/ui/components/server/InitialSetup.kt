@@ -26,6 +26,7 @@ import androidx.tv.material3.Text
 import com.github.damontecres.stashapp.ui.compat.isNotTvDevice
 import com.github.damontecres.stashapp.ui.util.ScreenSize
 import com.github.damontecres.stashapp.ui.util.screenSize
+import com.github.damontecres.stashapp.util.AppPin
 import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.preferences
@@ -73,6 +74,8 @@ fun InitialSetup(
                                 }
                             }
                     }
+                    // Dual-write SharedPreferences so RootActivity / legacy PIN gate see the PIN.
+                    AppPin.writePinToSharedPreferences(context, pin, autoSubmit = true)
                 } catch (ex: Exception) {
                     Log.e("InitialSetup", "Error saving pin", ex)
                     showToastOnMain(context, "Error saving pin", Toast.LENGTH_LONG)

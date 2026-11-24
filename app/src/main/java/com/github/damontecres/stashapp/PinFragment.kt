@@ -11,7 +11,7 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.preference.PreferenceManager
+import com.github.damontecres.stashapp.util.AppPin
 import com.github.damontecres.stashapp.util.PresencePinUnlock
 import com.github.damontecres.stashapp.util.StashCoroutineExceptionHandler
 import com.github.damontecres.stashapp.views.models.ServerViewModel
@@ -25,11 +25,8 @@ class PinFragment : Fragment(R.layout.pin_dialog) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pinCode =
-            PreferenceManager
-                .getDefaultSharedPreferences(requireContext())
-                .getString("pinCode", "")
-        if (pinCode.isNullOrBlank()) {
+        val pinCode = AppPin.resolvePinCode(requireContext())
+        if (pinCode.isBlank()) {
             unlocked = true
             // startMain needs the fragment to be attached; defer to onViewCreated
         }
@@ -43,10 +40,10 @@ class PinFragment : Fragment(R.layout.pin_dialog) {
 
         pinEditText = view.findViewById(R.id.pin_edit_text)
 
-        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        val pinCode = prefs.getString(getString(R.string.pref_key_pin_code), "")
+        val pinPrefs = AppPin.pinPreferences(requireContext())
+        val pinCode = AppPin.resolvePinCode(requireContext())
 
-        if (unlocked || pinCode.isNullOrBlank()) {
+        if (unlocked || pinCode.isBlank()) {
             startMain()
             return
         }
@@ -61,8 +58,7 @@ class PinFragment : Fragment(R.layout.pin_dialog) {
             }
         }
 
-        val autoSubmitPin =
-            prefs.getBoolean(getString(R.string.pref_key_pin_code_auto), false)
+        val autoSubmitPin = pinPrefs.autoSubmit
         if (autoSubmitPin) {
             submit.visibility = View.INVISIBLE
             pinEditText.doAfterTextChanged {
@@ -73,7 +69,7 @@ class PinFragment : Fragment(R.layout.pin_dialog) {
             }
         }
 
-        val presenceConfig = PresencePinUnlock.configFrom(prefs, requireContext())
+        val presenceConfig = AppPin.presenceConfig(requireContext())
         if (presenceConfig.isConfigured) {
             // Hide PIN UI while checking presence so unlock feels instant.
             view.visibility = View.INVISIBLE

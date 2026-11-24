@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - cursor/presence-pin-unlock-def2
+      - cursor/pin-datastore-sync-ba55
   workflow_dispatch:
 
 defaults:

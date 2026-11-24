@@ -21,17 +21,16 @@ import androidx.core.widget.ContentLoadingProgressBar
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.media3.common.util.UnstableApi
-import androidx.preference.PreferenceManager
 import com.github.damontecres.stashapp.navigation.Destination
 import com.github.damontecres.stashapp.navigation.NavigationListener
 import com.github.damontecres.stashapp.navigation.NavigationManager
 import com.github.damontecres.stashapp.navigation.NavigationManagerCompose
 import com.github.damontecres.stashapp.navigation.NavigationManagerLeanback
+import com.github.damontecres.stashapp.util.AppPin
 import com.github.damontecres.stashapp.util.KeyEventDispatcher
 import com.github.damontecres.stashapp.util.StashServer
 import com.github.damontecres.stashapp.util.animateToInvisible
 import com.github.damontecres.stashapp.util.composeEnabled
-import com.github.damontecres.stashapp.util.isNotNullOrBlank
 import com.github.damontecres.stashapp.util.maybeGetDestination
 import com.github.damontecres.stashapp.util.putDestination
 import com.github.damontecres.stashapp.views.models.ServerViewModel
@@ -228,11 +227,7 @@ class RootActivity :
         }
     }
 
-    private fun appHasPin(): Boolean =
-        PreferenceManager
-            .getDefaultSharedPreferences(this)
-            .getString("pinCode", "")
-            .isNotNullOrBlank()
+    private fun appHasPin(): Boolean = AppPin.hasPin(this)
 
     // Delegate key events to the current fragment
 
