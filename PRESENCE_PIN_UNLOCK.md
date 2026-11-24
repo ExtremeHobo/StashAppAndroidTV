@@ -75,3 +75,11 @@ template:
 ```
 
 The current app build evaluates the three entities directly (no HA YAML required).
+
+## PIN / DataStore note (2026-11-24)
+
+Compose setup (`InitialSetup`) and Preferences write PIN into Proto DataStore.
+The PIN gate historically read only SharedPreferences, so a PIN set during setup
+could leave SharedPreferences empty and **skip the PIN screen entirely** — including
+when Meghan is home. Fixed builds dual-write and prefer DataStore via `AppPin`.
+Presence rule also fail-closes on blank/unknown HA states.

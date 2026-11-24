@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit
 object PresencePinUnlock {
     private const val TAG = "PresencePinUnlock"
 
-    const val DEFAULT_HA_URL = "http://homeassistant.local:8123"
+    // Prefer LAN IP on Android TV — .local / mDNS is flaky.
+    const val DEFAULT_HA_URL = "http://192.168.1.23:8123"
     const val DEFAULT_SAM_ENTITY = "person.sam_davis"
     const val DEFAULT_MEGHAN_ENTITY = "person.meghan"
     const val DEFAULT_GUEST_ENTITY = "input_boolean.guest_mode"
@@ -83,15 +84,24 @@ object PresencePinUnlock {
     /**
      * Pure rule: Sam at home, Meghan not at home, guest mode off.
      * Person entities use state "home" when home; away may be "not_home" or a zone name.
+     *
+     * Fail closed: null/blank/unknown states never skip the PIN. Notably, treating a missing
+     * Meghan state as "away" would incorrectly unlock when presence is unknown.
      */
     fun shouldSkipPin(
         samState: String?,
         meghanState: String?,
         guestState: String?,
     ): Boolean {
-        val samHome = samState.equals("home", ignoreCase = true)
-        val meghanAway = !meghanState.equals("home", ignoreCase = true)
-        val guestOff = guestState.equals("off", ignoreCase = true)
+        val sam = samState?.trim().orEmpty()
+        val meghan = meghanState?.trim().orEmpty()
+        val guest = guestState?.trim().orEmpty()
+        if (sam.isEmpty() || meghan.isEmpty() || guest.isEmpty()) {
+            return false
+        }
+        val samHome = sam.equals("home", ignoreCase = true)
+        val meghanAway = !meghan.equals("home", ignoreCase = true)
+        val guestOff = guest.equals("off", ignoreCase = true)
         return samHome && meghanAway && guestOff
     }
 
@@ -101,7 +111,8 @@ object PresencePinUnlock {
      */
     suspend fun shouldSkipPin(context: Context): Boolean =
         withContext(Dispatchers.IO) {
-            val config = configFrom(context)
+            // Prefer DataStore (Compose) over SharedPreferences-only reads.
+            val config = AppPin.presenceConfig(context)
             if (!config.isConfigured) {
                 Log.d(TAG, "Presence unlock not configured; PIN required")
                 return@withContext false
